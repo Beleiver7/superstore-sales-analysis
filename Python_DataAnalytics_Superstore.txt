@@ -1,0 +1,403 @@
+================================================================
+        PYTHON DATA ANALYTICS - COMMANDS CHEAT SHEET
+        Project: Superstore Sales Analysis
+        Beginner Level
+        Last Updated: Visualization Phase
+================================================================
+
+----------------------------------------------------------------
+STEP 1 - IMPORT LIBRARIES
+----------------------------------------------------------------
+
+import pandas as pd                  # Load pandas tool (for working with data tables)
+import matplotlib.pyplot as plt      # Load matplotlib (for making charts)
+import seaborn as sns                # Load seaborn (for beautiful charts)
+
+----------------------------------------------------------------
+STEP 2 - LOAD THE DATASET
+----------------------------------------------------------------
+
+# Basic load (may cause encoding error with some files)
+df = pd.read_csv("Sample - Superstore.csv")
+
+# Fixed load with encoding (use this for our Superstore file)
+df = pd.read_csv("Sample - Superstore.csv", encoding="latin1")
+
+# NOTE: encoding="latin1" is used when the file has special
+# characters that UTF-8 (default) cannot read.
+
+----------------------------------------------------------------
+STEP 3 - EXPLORE THE DATA
+----------------------------------------------------------------
+
+df.head()             # Show first 5 rows
+df.head(10)           # Show first 10 rows
+df.tail()             # Show last 5 rows
+df.tail(10)           # Show last 10 rows
+df.sample(10)         # Show 10 random rows
+df[50:60]             # Show rows from index 50 to 60
+df.shape              # Show (total rows, total columns)
+df.columns.tolist()   # List all column names
+df.dtypes             # Show data type of each column
+df.describe()         # Show statistics for number columns
+
+----------------------------------------------------------------
+STEP 4 - CHECK FOR MISSING VALUES
+----------------------------------------------------------------
+
+df.isnull().sum()              # Count missing values per column
+df[df["Sales"].isnull()]       # Rows where a specific column is missing
+df[df.isnull().any(axis=1)]    # Rows where ANY column has missing value
+
+# NOTE: df[df.isnull()] will give ERROR!
+# isnull() returns a whole table of True/False
+# To filter rows you always need ONE True/False per row!
+
+----------------------------------------------------------------
+STEP 5 - CHECK FOR DUPLICATE ROWS
+----------------------------------------------------------------
+
+df.duplicated().sum()          # Count total duplicate rows
+df[df.duplicated()]            # Show all duplicate rows
+df.drop_duplicates()           # Remove duplicate rows (if any)
+
+# KEY DIFFERENCE:
+# df.duplicated() → ONE True/False per row ✅ (can filter)
+# df.isnull()     → whole table of True/False ❌ (cannot filter)
+
+----------------------------------------------------------------
+STEP 6 - FIX DATE COLUMNS
+----------------------------------------------------------------
+
+# Convert date columns from text to proper date format
+df["Order Date"] = pd.to_datetime(df["Order Date"])
+df["Ship Date"]  = pd.to_datetime(df["Ship Date"])
+
+# Verify the fix
+print(df[["Order Date", "Ship Date"]].dtypes)
+
+----------------------------------------------------------------
+STEP 7 - EXTRACT PARTS FROM A DATE
+----------------------------------------------------------------
+
+df["Day"]         = df["Order Date"].dt.day          # Day number (1-31)
+df["Month"]       = df["Order Date"].dt.month        # Month number (1-12)
+df["Year"]        = df["Order Date"].dt.year         # Year (2015, 2016...)
+df["Quarter"]     = df["Order Date"].dt.quarter      # Quarter (1,2,3,4)
+df["Day_of_Week"] = df["Order Date"].dt.dayofweek   # 0=Monday, 6=Sunday
+df["Day_Name"]    = df["Order Date"].dt.day_name()   # "Monday", "Tuesday"...
+df["Month_Name"]  = df["Order Date"].dt.month_name() # "January", "February"...
+
+# Group by Month Period (2015-01, 2015-02...)
+df["Year-Month"]  = df["Order Date"].dt.to_period("M")
+
+# Period options:
+# "M" = Month, "Q" = Quarter, "Y" = Year, "W" = Week
+
+----------------------------------------------------------------
+STEP 8 - FEATURE ENGINEERING (ADDING NEW COLUMNS)
+----------------------------------------------------------------
+
+# Add Shipping Days column
+df["Shipping Days"] = (df["Ship Date"] - df["Order Date"]).dt.days
+
+# Average shipping days
+print("Average Shipping Days:", df["Shipping Days"].mean())
+# Result: ~4 days
+
+----------------------------------------------------------------
+STEP 9 - ANALYSIS WITH GROUPBY
+----------------------------------------------------------------
+
+# Basic groupby - one column, one calculation
+df.groupby("Region")["Sales"].sum()
+
+# Multiple columns, same calculation
+df.groupby("Region")[["Sales","Profit"]].sum()
+
+# Different calculation per column using agg()
+df.groupby("Region").agg(
+    Total_Sales  = ("Sales",    "sum"),
+    Total_Profit = ("Profit",   "sum"),
+    Avg_Discount = ("Discount", "mean")
+)
+
+# Sort results
+df.groupby("Region")["Sales"].sum().sort_values(ascending=False)
+
+# Top 10 only
+df.groupby("Sub-Category")["Sales"].sum().nlargest(10)
+
+# agg() functions available:
+# "sum"   = total
+# "mean"  = average
+# "max"   = highest value
+# "min"   = lowest value
+# "count" = count of rows
+
+# SAME function for all columns:
+df.groupby("Region")[["Sales","Profit"]].agg("sum")
+
+# MULTIPLE functions for all columns:
+df.groupby("Region")[["Sales","Profit"]].agg(["sum","mean"])
+
+# DIFFERENT function per column:
+df.groupby("Region").agg(
+    Total_Sales  = ("Sales",  "sum"),
+    Avg_Discount = ("Discount","mean")
+)
+
+----------------------------------------------------------------
+STEP 10 - CALCULATED COLUMNS (FEATURE ENGINEERING)
+----------------------------------------------------------------
+
+# Profit Margin % = (Total Profit / Total Sales) x 100
+# ALWAYS calculate from totals, never from mean of margins!
+
+category = df.groupby("Category").agg(
+    Total_Sales  = ("Sales",  "sum"),
+    Total_Profit = ("Profit", "sum")
+)
+category["Profit_Margin_%"] = round(
+    (category["Total_Profit"] / category["Total_Sales"]) * 100, 2
+)
+
+# Profit per Order = Total Profit / Total Orders
+region = df.groupby("Region").agg(
+    Total_Profit = ("Profit",   "sum"),
+    Total_Orders = ("Order ID", "count")
+)
+region["Profit_per_Order"] = round(
+    region["Total_Profit"] / region["Total_Orders"], 2
+)
+
+# round(value, 2) = round to 2 decimal places
+
+----------------------------------------------------------------
+STEP 11 - RESET INDEX
+----------------------------------------------------------------
+
+# After groupby, grouped column becomes INDEX not a column
+# Use reset_index() to convert it back to a normal column
+
+df.groupby("Category")["Sales"].sum().reset_index()
+
+# WITHOUT reset_index → use with plt.bar() directly
+plt.bar(data.index, data.values)
+
+# WITH reset_index → needed for seaborn
+sns.barplot(data=df_reset, x="Category", y="Sales")
+
+----------------------------------------------------------------
+STEP 12 - CHARTS WITH MATPLOTLIB
+----------------------------------------------------------------
+
+# Bar Chart
+plt.figure(figsize=(8,5))            # figsize=(width, height) in inches
+plt.bar(x, y, color="steelblue")    # draw bars
+plt.title("Title here")             # chart title
+plt.xlabel("X axis label")          # x axis label
+plt.ylabel("Y axis label")          # y axis label
+plt.tight_layout()                  # fix spacing
+plt.show()                          # display chart
+
+# Line Chart
+plt.plot(x, y, color="steelblue", linewidth=2, marker="o", markersize=3)
+plt.xticks(rotation=90)             # rotate x labels 90 degrees
+
+# Pie Chart
+plt.pie(
+    values,
+    labels=labels,
+    autopct="%1.1f%%",              # show percentages on slices
+    colors=["#FF6B6B","#4ECDC4"],   # custom colors
+    startangle=90,                  # start from top
+    explode=(0.05, 0.05, 0.05)      # separate slices slightly
+)
+
+----------------------------------------------------------------
+STEP 13 - CHARTS WITH SEABORN
+----------------------------------------------------------------
+
+# Bar Chart (fix FutureWarning by adding hue and legend=False)
+sns.barplot(
+    data=df,
+    x="Category",
+    y="Profit",
+    hue="Category",
+    palette="viridis",
+    legend=False
+)
+
+# Color Palettes available:
+# "viridis"  = blue to green
+# "coolwarm" = blue to red
+# "Blues"    = light to dark blue
+# "Set2"     = soft mixed colors
+# "rocket"   = dark purple to yellow
+
+----------------------------------------------------------------
+DISPLAY OPTIONS
+----------------------------------------------------------------
+
+pd.set_option("display.max_rows", None)     # show all rows
+pd.set_option("display.max_columns", None)  # show all columns
+pd.reset_option("display.max_rows")         # reset to default
+pd.reset_option("display.max_columns")      # reset to default
+
+----------------------------------------------------------------
+JUPYTER NOTEBOOK SHORTCUTS
+----------------------------------------------------------------
+
+Shift + Enter   = Run cell and move to next
+Ctrl + Enter    = Run cell and stay
+A               = Add cell above (press Escape first)
+B               = Add cell below (press Escape first)
+D + D           = Delete cell (press Escape first)
+M               = Convert to Markdown (text)
+Y               = Convert to Code
+
+----------------------------------------------------------------
+DATA TYPES QUICK REFERENCE
+----------------------------------------------------------------
+
+int64       = Whole numbers     (1, 2, 100, 9994)
+float64     = Decimal numbers   (261.96, -6599.97)
+object/str  = Text              ("Consumer", "West")
+datetime64  = Dates             (2016-11-08)
+Period      = Year-Month        (2016-11)
+
+----------------------------------------------------------------
+KEY BUSINESS INSIGHTS FROM OUR ANALYSIS
+----------------------------------------------------------------
+
+REGION ANALYSIS:
+  Best Region     : West   ($725K sales, $108K profit, 10.9% discount)
+  Worst Region    : Central (highest discount 24% → lowest profit!)
+
+CATEGORY ANALYSIS:
+  Best Category   : Technology (17.40% profit margin)
+  Hidden Gem      : Office Supplies (17.04% margin, most efficient)
+  Worst Category  : Furniture (only 2.49% profit margin!)
+
+SUB-CATEGORY ANALYSIS:
+  Top Sales       : Phones ($330K)
+  Best Margin     : Copiers (37.20%!)
+  Losing Money    : Tables (-8.56%), Bookcases (-3.02%)
+
+GENERAL INSIGHTS:
+  High Discount   → Low Profit (proven across all regions/categories)
+  Avg Shipping    : ~4 days
+  Missing Values  : NONE
+  Duplicate Rows  : NONE
+
+----------------------------------------------------------------
+DATA CLEANING CHECKLIST
+----------------------------------------------------------------
+
+✅ Missing values checked   → 0 missing values
+✅ Duplicate rows checked   → 0 duplicates
+✅ Date columns fixed       → Converted to datetime64
+✅ Feature Engineering      → Added Shipping Days column
+✅ Analysis Complete        → Region, Category, Sub-Category
+✅ Visualization Started    → Bar, Pie charts done
+⬜ Line Chart (Trend)       → COMING NEXT!
+⬜ Scatter Plot             → COMING NEXT!
+⬜ MySQL Import             → COMING NEXT!
+
+================================================================
+                    KEEP LEARNING! YOU GOT THIS!
+================================================================
+
+----------------------------------------------------------------
+STEP 14 - SCATTER PLOT
+----------------------------------------------------------------
+
+# Scatter Plot - relationship between two numeric columns
+plt.figure(figsize=(8,5))
+plt.scatter(
+    df["Discount"],          # x axis
+    df["Profit"],            # y axis
+    alpha=0.3,               # transparency (0=invisible, 1=solid)
+    color="steelblue"
+)
+plt.title("Discount vs Profit")
+plt.xlabel("Discount")
+plt.ylabel("Profit ($)")
+plt.axhline(y=0, color="red", linestyle="--")  # horizontal line at y=0
+plt.tight_layout()
+plt.show()
+
+# alpha=0.3 → 30% opacity, helps see overlapping dots clearly
+# axhline  → draws a horizontal reference line
+# linestyle options: "--" dashed, "-" solid, ":" dotted
+
+----------------------------------------------------------------
+STEP 15 - MONTHLY TREND LINE CHART
+----------------------------------------------------------------
+
+# Group by Month
+df["Year-Month"] = df["Order Date"].dt.to_period("M")
+monthly_sales = df.groupby("Year-Month")["Sales"].sum().reset_index()
+monthly_sales["Year-Month"] = monthly_sales["Year-Month"].astype(str)
+
+plt.figure(figsize=(14,5))
+plt.plot(
+    monthly_sales["Year-Month"],
+    monthly_sales["Sales"],
+    color="steelblue",
+    linewidth=2,
+    marker="o",       # dot at each data point
+    markersize=3      # size of dots
+)
+plt.title("Monthly Sales Trend (2015-2018)")
+plt.xlabel("Month")
+plt.ylabel("Sales ($)")
+plt.xticks(rotation=90)   # rotate x labels vertically
+plt.tight_layout()
+plt.show()
+
+----------------------------------------------------------------
+CHARTS SUMMARY
+----------------------------------------------------------------
+
+Chart Type      When to use
+-----------     --------------------------------
+Bar Chart       Compare categories (Region, Category)
+Pie Chart       Show percentage/share distribution
+Line Chart      Show trend over time
+Scatter Plot    Show relationship between two numbers
+Histogram       Show distribution of one number
+
+----------------------------------------------------------------
+KEY INSIGHTS PROVEN BY CHARTS
+----------------------------------------------------------------
+
+✅ West region has highest sales AND profit
+✅ Technology is most profitable category
+✅ Furniture has lowest profit despite high sales
+✅ Sales spike every Nov-Dec (holiday season)
+✅ February always has lowest sales
+✅ Discount > 20% = almost guaranteed loss!
+✅ 0% discount = highest possible profit ($8000+)
+✅ Business is growing year over year
+
+----------------------------------------------------------------
+COMING NEXT - MYSQL IMPORT PHASE
+----------------------------------------------------------------
+
+import mysql.connector
+
+# Connect to MySQL
+conn = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="your_password",
+    database="your_database"
+)
+
+# More MySQL commands coming soon...
+
+================================================================
+                    KEEP LEARNING! YOU GOT THIS!
+================================================================
